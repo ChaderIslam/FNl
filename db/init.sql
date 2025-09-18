@@ -51,3 +51,16 @@ SELECT 'Annotation', 'Basic', '123456789', 'بن عيسى', 'محمد', 'Ben Ais
 WHERE NOT EXISTS (
     SELECT 1 FROM requests WHERE nin = '123456789'
 );
+
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(100) NOT NULL,
+    role VARCHAR(20) DEFAULT 'user'
+);
+
+INSERT INTO users (email, password, role)
+SELECT 'test@mail.com', '$2b$10$GcXvvw3Jve2Yp2fh47gw0O8wqtVY.YNudlLhkzznclww6yAZdbmJi', 'admin'
+WHERE NOT EXISTS (
+  SELECT 1 FROM users WHERE email = 'test@mail.com'
+);

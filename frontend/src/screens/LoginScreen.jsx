@@ -2,15 +2,60 @@
 import { useNavigate } from "react-router-dom";
 import HImage from "../assets/pictures/H.png";
 import logo from "../assets/pictures/logo.png";
-
+import { useState , useEffect} from "react";
 export default function LoginScreen() {
   const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  //navigate directly to dashboard if token exists
+  // useEffect(() => {
+  //   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  //   if (token) {
+  //     navigate("/dashboard");
+  //   }
+  // }, [navigate]);
+    useEffect(() => {
+    const savedEmail = localStorage.getItem("rememberedEmail");
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
+  const handleLogin = async (e) => {
+    e.preventDefault(); 
+    setError("");
+    if (!email || !password) {
+      console.log(email);
+      setError("Please enter both email and password.");
+      return;
+    }
 
-  const handleLogin = (e) => {
-    e.preventDefault(); // Prevent form submission from reloading the page
-    // TODO: Add your authentication logic here
-    // If login is successful, navigate to the dashboard
-    navigate("/dashboard");
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        if (rememberMe) {
+          console.log("remember me is checked");
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("rememberedEmail", email);
+        } else {
+          sessionStorage.setItem("token", data.token);
+          localStorage.removeItem("rememberedEmail");
+        }
+        navigate("/dashboard");
+      } else {
+        setError(data.error || "Login failed");
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    }
   };
 
   return (
@@ -56,6 +101,8 @@ export default function LoginScreen() {
                 <label className="block text-sm font-medium text-gray-700">Email address</label>
                 <input
                   type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@mail.com"
                   className="mt-1 w-full rounded-lg border border-gray-300 bg-gray-50 p-3 text-gray-900 placeholder-gray-400 focus:border-green-600 focus:ring-2 focus:ring-green-600"
                 />
@@ -63,16 +110,31 @@ export default function LoginScreen() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700">Password</label>
+                  <div className="relative">
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="mt-1 w-full rounded-lg border border-gray-300 bg-gray-50 p-3 text-gray-900 placeholder-gray-400 focus:border-green-600 focus:ring-2 focus:ring-green-600"
                 />
+                          <button
+            type="button"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm"
+            onClick={() => setShowPassword((prev) => !prev)}
+            tabIndex={-1}
+          >
+            {showPassword ? "Hide" : "Show"}
+          </button>
+                </div>
               </div>
+            {error && (
+            <div className="text-red-600 text-center font-semibold">{error}</div>
+          )}
 
               <div className="flex items-center justify-between text-sm">
                 <label className="flex items-center gap-2 text-gray-600">
-                  <input type="checkbox" className="h-4 w-4 rounded border-gray-400" />
+                  <input type="checkbox" className="h-4 w-4 rounded border-gray-400" checked={rememberMe} onChange={(e)=> setRememberMe(e.target.checked)}/>
                   Remember me
                 </label>
                 <a href="#" className="text-green-600 hover:underline">Forgot password?</a>
@@ -84,6 +146,16 @@ export default function LoginScreen() {
               >
                 Login
               </button>
+              {/* <div className="mt-4 text-center">
+  <span className="text-gray-600">Don't have an account?</span>
+  <button
+    type="button"
+    className="ml-2 text-green-700 font-semibold hover:underline"
+    onClick={() => navigate("/register")}
+  >
+    Register
+  </button>
+</div> */}
             </form>
           </div>
         </div>

@@ -3,23 +3,25 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import requestsRoutes from "./routes/requests.js";
-import pool from "./db/db.js"; // 👈 force DB import
-
+import pool from "./db/db.js"; 
+import authRoutes from "./routes/auth.js";
 dotenv.config();
 const app = express();
 
-// ✅ Enable CORS (allow frontend on Vite:5173 to call backend:5000)
+// Enable CORS (allow frontend on Vite:5173 to call backend:5000)
 app.use(cors({
   origin: "http://localhost:5173", // allow only frontend
   methods: ["GET", "POST"],
   allowedHeaders: ["Content-Type"],
 }));
 
-// ✅ Middleware to parse JSON
+// Middleware to parse JSON
 app.use(express.json());
 
-// ✅ Routes
+// Routes
 app.use("/api/requests", requestsRoutes);
+app.use("/api/auth", authRoutes);
+
 
 const PORT = process.env.BACKEND_PORT || 5000;
 
@@ -33,7 +35,7 @@ app.listen(PORT, () => {
     port: process.env.POSTGRES_PORT,
   });
 
-  // ✅ Test DB connection on startup
+  // Test DB connection on startup
   pool.connect()
     .then((client) => {
       console.log("✅ PostgreSQL connected...");
@@ -43,3 +45,4 @@ app.listen(PORT, () => {
       console.error("❌ Database connection error:", err.message);
     });
 });
+
