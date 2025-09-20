@@ -151,7 +151,6 @@ export default function Overview() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <h1 className="text-4xl font-bold text-gray-800 mb-10 text-center">Admin Dashboard</h1>
 
       {/* Groups Section */}
       <div className="bg-white shadow-xl rounded-2xl p-6 mb-12">
