@@ -1,6 +1,6 @@
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 
-export default function ReviewStep({ citizenStatuses, startControl }) {
+export default function ReviewStep({ citizenStatuses, startControl, handleFinish }) {
   const allDone = citizenStatuses.every((c) => c.status === "done");
   const somePending = citizenStatuses.some((c) => c.status === "pending");
 
@@ -115,10 +115,10 @@ export default function ReviewStep({ citizenStatuses, startControl }) {
         {/* Finish Button */}
         {allDone && (
           <button
-            onClick={() => alert("✅ Control process completed!")}
-            className="w-40 px-6 py-3 rounded-xl bg-gradient-to-r from-green-800 to-green-600 font-semibold text-white shadow-md hover:from-green-900 hover:to-green-700 hover:scale-105 transition"
+            onClick={handleFinish}
+            className="w-40 px-6 py-3 rounded-xl bg-gradient-to-r from-green-700 to-green-500 font-semibold text-white shadow-md hover:from-green-800 hover:to-green-600 hover:scale-105 transition"
           >
-            Finish
+            Finish & Save
           </button>
         )}
       </div>

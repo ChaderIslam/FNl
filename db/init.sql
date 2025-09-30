@@ -1,4 +1,6 @@
--- Create user if not exists
+-- ===============================
+-- 1. Create user + database if not exists
+-- ===============================
 DO
 $$
 BEGIN
@@ -12,7 +14,6 @@ BEGIN
 END
 $$;
 
--- Ensure database exists (idempotent way)
 DO
 $$
 BEGIN
@@ -24,24 +25,27 @@ BEGIN
 END
 $$;
 
--- Grant permissions
 GRANT ALL PRIVILEGES ON DATABASE fnl_db TO fnl_user;
 
--- Switch into database
 \connect fnl_db
 
--- Create table if not exists
+-- ===============================
+-- 2. Citizen Requests (wizard output)
+-- ===============================
 CREATE TABLE IF NOT EXISTS requests (
     id SERIAL PRIMARY KEY,
-    step1 VARCHAR(50),
-    step2 VARCHAR(50),
-    nin VARCHAR(20),
-    lastNameAr VARCHAR(100),
-    firstNameAr VARCHAR(100),
+    step1 VARCHAR(50),              -- Annotation / Control / File Update
+    step2 VARCHAR(50),              -- Basic / Advanced
+    nin VARCHAR(20) NOT NULL,
+    lastNameAr VARCHAR(100) NOT NULL,
+    firstNameAr VARCHAR(100) NOT NULL,
     lastNameLat VARCHAR(100),
     firstNameLat VARCHAR(100),
-    wilaya VARCHAR(100),
-    municipality VARCHAR(100),
+    wilaya VARCHAR(100) NOT NULL,
+    municipality VARCHAR(100) NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending', -- pending | in-progress | done
+    progress INT DEFAULT 0,               -- percentage 0–100
+    result VARCHAR(20),                   -- positive | negative | null
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -52,13 +56,10 @@ WHERE NOT EXISTS (
     SELECT 1 FROM requests WHERE nin = '123456789'
 );
 
-
 -- ===============================
--- Création du schéma de privilèges et utilisateurs
+-- 3. Users, Groups, Privileges
 -- ===============================
-
--- 1. Table des utilisateurs
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     user_id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
@@ -67,51 +68,47 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Table des groupes
-CREATE TABLE groups (
+CREATE TABLE IF NOT EXISTS groups (
     group_id SERIAL PRIMARY KEY,
     group_name VARCHAR(50) UNIQUE NOT NULL,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Relation users <-> groups
-CREATE TABLE user_groups (
+CREATE TABLE IF NOT EXISTS user_groups (
     user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     group_id INT REFERENCES groups(group_id) ON DELETE CASCADE,
     PRIMARY KEY (user_id, group_id)
 );
 
--- 4. Table des privilèges
-CREATE TABLE privileges (
+CREATE TABLE IF NOT EXISTS privileges (
     privilege_id SERIAL PRIMARY KEY,
     privilege_name VARCHAR(50) UNIQUE NOT NULL,
     description TEXT
 );
 
--- 5. Relation users <-> privileges
-CREATE TABLE user_privileges (
+CREATE TABLE IF NOT EXISTS user_privileges (
     user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     privilege_id INT REFERENCES privileges(privilege_id) ON DELETE CASCADE,
     PRIMARY KEY (user_id, privilege_id)
 );
 
--- 6. Relation groups <-> privileges
-CREATE TABLE group_privileges (
+CREATE TABLE IF NOT EXISTS group_privileges (
     group_id INT REFERENCES groups(group_id) ON DELETE CASCADE,
     privilege_id INT REFERENCES privileges(privilege_id) ON DELETE CASCADE,
     PRIMARY KEY (group_id, privilege_id)
 );
 
--- 7. Table des opérations utilisateurs
-CREATE TABLE user_operations (
+-- ===============================
+-- 4. User Operations & Logs
+-- ===============================
+CREATE TABLE IF NOT EXISTS user_operations (
     operation_id SERIAL PRIMARY KEY,
     operation_name VARCHAR(50) UNIQUE NOT NULL,
     description TEXT
 );
 
--- 8. Journalisation des opérations effectuées par les users
-CREATE TABLE user_operation_logs (
+CREATE TABLE IF NOT EXISTS user_operation_logs (
     log_id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     operation_id INT REFERENCES user_operations(operation_id) ON DELETE CASCADE,
@@ -120,25 +117,60 @@ CREATE TABLE user_operation_logs (
 );
 
 -- ===============================
--- Insertions de base (optionnel)
+-- 5. Base Inserts (optional seed data)
 -- ===============================
+INSERT INTO user_operations (operation_name, description)
+SELECT 'control', 'Vérification des données'
+WHERE NOT EXISTS (SELECT 1 FROM user_operations WHERE operation_name='control');
 
--- Exemple d'opérations de base pour les utilisateurs
-INSERT INTO user_operations (operation_name, description) VALUES
-('control', 'Vérification des données'),
-('annotation', 'Ajout de remarques et validations'),
-('alimentation', 'Insertion de nouvelles données'),
-('update', 'Modification des données existantes'),
-('dashboard', 'Consultation du tableau de bord personnel'),
-('notification', 'Réception d’alertes et messages');
+INSERT INTO user_operations (operation_name, description)
+SELECT 'annotation', 'Ajout de remarques et validations'
+WHERE NOT EXISTS (SELECT 1 FROM user_operations WHERE operation_name='annotation');
 
--- Exemple de privilèges pour l’admin
-INSERT INTO privileges (privilege_name, description) VALUES
-('create_user', 'Créer un nouvel utilisateur'),
-('delete_user', 'Supprimer un utilisateur'),
-('add_privilege_user', 'Attribuer un privilège à un utilisateur'),
-('remove_privilege_user', 'Retirer un privilège d’un utilisateur'),
-('modify_user_account', 'Modifier les informations d’un utilisateur'),
-('create_group', 'Créer un groupe d’utilisateurs'),
-('add_privilege_group', 'Attribuer un privilège à un groupe'),
-('remove_privilege_group', 'Retirer un privilège d’un groupe');
+INSERT INTO user_operations (operation_name, description)
+SELECT 'alimentation', 'Insertion de nouvelles données'
+WHERE NOT EXISTS (SELECT 1 FROM user_operations WHERE operation_name='alimentation');
+
+INSERT INTO user_operations (operation_name, description)
+SELECT 'update', 'Modification des données existantes'
+WHERE NOT EXISTS (SELECT 1 FROM user_operations WHERE operation_name='update');
+
+INSERT INTO user_operations (operation_name, description)
+SELECT 'dashboard', 'Consultation du tableau de bord personnel'
+WHERE NOT EXISTS (SELECT 1 FROM user_operations WHERE operation_name='dashboard');
+
+INSERT INTO user_operations (operation_name, description)
+SELECT 'notification', 'Réception d’alertes et messages'
+WHERE NOT EXISTS (SELECT 1 FROM user_operations WHERE operation_name='notification');
+
+INSERT INTO privileges (privilege_name, description)
+SELECT 'create_user', 'Créer un nouvel utilisateur'
+WHERE NOT EXISTS (SELECT 1 FROM privileges WHERE privilege_name='create_user');
+
+INSERT INTO privileges (privilege_name, description)
+SELECT 'delete_user', 'Supprimer un utilisateur'
+WHERE NOT EXISTS (SELECT 1 FROM privileges WHERE privilege_name='delete_user');
+
+INSERT INTO privileges (privilege_name, description)
+SELECT 'add_privilege_user', 'Attribuer un privilège à un utilisateur'
+WHERE NOT EXISTS (SELECT 1 FROM privileges WHERE privilege_name='add_privilege_user');
+
+INSERT INTO privileges (privilege_name, description)
+SELECT 'remove_privilege_user', 'Retirer un privilège d’un utilisateur'
+WHERE NOT EXISTS (SELECT 1 FROM privileges WHERE privilege_name='remove_privilege_user');
+
+INSERT INTO privileges (privilege_name, description)
+SELECT 'modify_user_account', 'Modifier les informations d’un utilisateur'
+WHERE NOT EXISTS (SELECT 1 FROM privileges WHERE privilege_name='modify_user_account');
+
+INSERT INTO privileges (privilege_name, description)
+SELECT 'create_group', 'Créer un groupe d’utilisateurs'
+WHERE NOT EXISTS (SELECT 1 FROM privileges WHERE privilege_name='create_group');
+
+INSERT INTO privileges (privilege_name, description)
+SELECT 'add_privilege_group', 'Attribuer un privilège à un groupe'
+WHERE NOT EXISTS (SELECT 1 FROM privileges WHERE privilege_name='add_privilege_group');
+
+INSERT INTO privileges (privilege_name, description)
+SELECT 'remove_privilege_group', 'Retirer un privilège d’un groupe'
+WHERE NOT EXISTS (SELECT 1 FROM privileges WHERE privilege_name='remove_privilege_group');

@@ -7,6 +7,7 @@ import pool from "./db/db.js"; // 👈 ensure DB initializes
 import usersRoutes from "./routes/users.js";
 import groupsRoutes from "./routes/groups.js";
 import privilegesRoutes from "./routes/privileges.js";
+import projectsRoutes from "./routes/projects.js";
 
 dotenv.config();
 const app = express();
@@ -26,6 +27,7 @@ app.use("/api/requests", requestsRoutes);
 app.use("/api/users", usersRoutes);        // includes PUT /api/users/:id
 app.use("/api/groups", groupsRoutes);
 app.use("/api/privileges", privilegesRoutes);
+app.use("/api/projects", projectsRoutes);
 
 const PORT = process.env.BACKEND_PORT || 5000;
 
