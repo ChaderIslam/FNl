@@ -1,16 +1,53 @@
-
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import HImage from "../assets/pictures/H.png";
 import logo from "../assets/pictures/logo.png";
 
 export default function LoginScreen() {
   const navigate = useNavigate();
+  const [formData, setFormData] = useState({ username: "", password: "" });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
-    e.preventDefault(); // Prevent form submission from reloading the page
-    // TODO: Add your authentication logic here
-    // If login is successful, navigate to the dashboard
-    navigate("/dashboard");
+  // handle input change
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // handle login
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Invalid username or password");
+      }
+
+      // ✅ Save JWT + user info
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      // Optional: console log for debugging
+      console.log("✅ Logged in:", data.user);
+
+      // ✅ Redirect to dashboard
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("❌ Login failed:", err.message);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -30,12 +67,12 @@ export default function LoginScreen() {
             <div className="flex items-center gap-2 mb-8">
               <span className="text-xl font-bold">YOUR LOGO</span>
             </div>
-            <h1 className="text-4xl font-bold mb-4">Hello, welcome!</h1>
+            <h1 className="text-4xl font-bold mb-4">Welcome Back!</h1>
             <p className="text-green-100 mb-6">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus nisi risus.
+              Log in with your username to access your dashboard securely.
             </p>
             <button className="rounded-lg bg-white px-6 py-3 text-green-700 font-semibold shadow hover:bg-gray-100">
-              View more
+              Learn more
             </button>
           </div>
         </div>
@@ -53,11 +90,15 @@ export default function LoginScreen() {
 
             <form className="w-full space-y-6" onSubmit={handleLogin}>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Email address</label>
+                <label className="block text-sm font-medium text-gray-700">Username</label>
                 <input
-                  type="email"
-                  placeholder="name@mail.com"
+                  type="text"
+                  name="username"
+                  placeholder="Enter your username"
+                  value={formData.username}
+                  onChange={handleChange}
                   className="mt-1 w-full rounded-lg border border-gray-300 bg-gray-50 p-3 text-gray-900 placeholder-gray-400 focus:border-green-600 focus:ring-2 focus:ring-green-600"
+                  required
                 />
               </div>
 
@@ -65,10 +106,18 @@ export default function LoginScreen() {
                 <label className="block text-sm font-medium text-gray-700">Password</label>
                 <input
                   type="password"
+                  name="password"
                   placeholder="••••••••"
+                  value={formData.password}
+                  onChange={handleChange}
                   className="mt-1 w-full rounded-lg border border-gray-300 bg-gray-50 p-3 text-gray-900 placeholder-gray-400 focus:border-green-600 focus:ring-2 focus:ring-green-600"
+                  required
                 />
               </div>
+
+              {error && (
+                <p className="text-red-600 text-sm text-center">{error}</p>
+              )}
 
               <div className="flex items-center justify-between text-sm">
                 <label className="flex items-center gap-2 text-gray-600">
@@ -80,9 +129,12 @@ export default function LoginScreen() {
 
               <button
                 type="submit"
-                className="w-full rounded-lg bg-gradient-to-r from-green-800 to-green-600 px-4 py-3 font-semibold text-white shadow-md transition hover:from-green-900 hover:to-green-700"
+                disabled={loading}
+                className={`w-full rounded-lg bg-gradient-to-r from-green-800 to-green-600 px-4 py-3 font-semibold text-white shadow-md transition ${
+                  loading ? "opacity-70 cursor-not-allowed" : "hover:from-green-900 hover:to-green-700"
+                }`}
               >
-                Login
+                {loading ? "Logging in..." : "Login"}
               </button>
             </form>
           </div>
