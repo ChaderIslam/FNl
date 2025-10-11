@@ -22,11 +22,15 @@ export async function getUsers(req, res) {
   }
 }
 
-// ✅ POST add new user (with password hashing)
+// ✅ POST add new user (with duplicate check + hashed password)
 export async function addUser(req, res) {
   const { username, email, password, groupId } = req.body;
 
   try {
+    if (!username || !email || !password || !groupId) {
+      return res.status(400).json({ error: "Username, email, password, and group are required." });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const userResult = await pool.query(
@@ -38,29 +42,43 @@ export async function addUser(req, res) {
 
     const user = userResult.rows[0];
 
-    if (groupId) {
-      await pool.query(
-        `INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2)`,
-        [user.user_id, groupId]
-      );
-    }
+    await pool.query(
+      `INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2)`,
+      [user.user_id, groupId]
+    );
 
     res.status(201).json({
-      message: "User created successfully",
+      message: "✅ User created successfully",
       user,
     });
   } catch (err) {
-    console.error("❌ addUser error:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("❌ addUser error:", err);
+
+    // Handle unique constraint (duplicate username/email)
+    if (err.code === "23505") {
+      if (err.detail.includes("username")) {
+        return res.status(409).json({ error: "Username already exists." });
+      }
+      if (err.detail.includes("email")) {
+        return res.status(409).json({ error: "Email already exists." });
+      }
+    }
+
+    res.status(500).json({ error: "Internal server error while creating user." });
   }
 }
 
-// ✅ PUT update a user
+// ✅ PUT update a user (with duplicate check + fixed group logic)
 export async function updateUser(req, res) {
   const { id } = req.params;
   const { username, email, groupId } = req.body;
 
   try {
+    if (!username || !email) {
+      return res.status(400).json({ error: "Username and email are required." });
+    }
+
+    // Try updating user
     const result = await pool.query(
       `UPDATE users
        SET username = $1, email = $2
@@ -70,25 +88,48 @@ export async function updateUser(req, res) {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User not found." });
     }
 
+    // Fix: handle group update correctly
     if (groupId) {
-      await pool.query(
-        `INSERT INTO user_groups (user_id, group_id)
-         VALUES ($1, $2)
-         ON CONFLICT (user_id) DO UPDATE SET group_id = $2`,
-        [id, groupId]
+      // Check if user already has a group
+      const groupCheck = await pool.query(
+        `SELECT * FROM user_groups WHERE user_id = $1`,
+        [id]
       );
+
+      if (groupCheck.rows.length > 0) {
+        await pool.query(
+          `UPDATE user_groups SET group_id = $1 WHERE user_id = $2`,
+          [groupId, id]
+        );
+      } else {
+        await pool.query(
+          `INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2)`,
+          [id, groupId]
+        );
+      }
     }
 
     res.json({
-      message: "User updated successfully",
+      message: "✅ User updated successfully",
       user: result.rows[0],
     });
   } catch (err) {
-    console.error("❌ updateUser error:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("❌ updateUser error:", err);
+
+    // Handle unique constraint
+    if (err.code === "23505") {
+      if (err.detail.includes("username")) {
+        return res.status(409).json({ error: "Username already exists." });
+      }
+      if (err.detail.includes("email")) {
+        return res.status(409).json({ error: "Email already exists." });
+      }
+    }
+
+    res.status(500).json({ error: "Internal server error while updating user." });
   }
 }
 
@@ -97,7 +138,7 @@ export async function deleteUser(req, res) {
   const { id } = req.params;
   try {
     await pool.query(`DELETE FROM users WHERE user_id = $1`, [id]);
-    res.json({ message: "User deleted successfully" });
+    res.json({ message: "🗑️ User deleted successfully" });
   } catch (err) {
     console.error("❌ deleteUser error:", err.message);
     res.status(500).json({ error: err.message });
@@ -114,14 +155,14 @@ export async function assignPrivilegeToUser(req, res) {
        ON CONFLICT DO NOTHING`,
       [id, privilegeId]
     );
-    res.json({ message: "Privilege assigned successfully" });
+    res.json({ message: "✅ Privilege assigned successfully" });
   } catch (err) {
     console.error("❌ assignPrivilegeToUser error:", err.message);
     res.status(500).json({ error: err.message });
   }
 }
 
-// ✅ DELETE remove privilege
+// ✅ DELETE remove privilege from user
 export async function removePrivilegeFromUser(req, res) {
   const { id, privilegeId } = req.params;
   try {
@@ -129,7 +170,7 @@ export async function removePrivilegeFromUser(req, res) {
       `DELETE FROM user_privileges WHERE user_id = $1 AND privilege_id = $2`,
       [id, privilegeId]
     );
-    res.json({ message: "Privilege removed successfully" });
+    res.json({ message: "🗑️ Privilege removed successfully" });
   } catch (err) {
     console.error("❌ removePrivilegeFromUser error:", err.message);
     res.status(500).json({ error: err.message });

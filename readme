@@ -1,0 +1,20 @@
+add user api
+
+Method: POST
+
+URL: http://localhost:5000/api/users
+
+Headers:
+
+Content-Type: application/json
+
+
+Body (raw JSON):
+
+{
+  "username": "john_doe",
+  "email": "john@example.com",
+  "password": "secret123",
+  "groupId": 1
+}
+

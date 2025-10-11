@@ -63,6 +63,8 @@ export default function Overview() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [formErrors, setFormErrors] = useState({});
+
 
   const allPrivilegesList = [
     { privilege_id: 1, privilege_name: "create_user" },
@@ -98,33 +100,75 @@ export default function Overview() {
     setShowGroupModal(false);
   };
 
-  // Add user (email optional)
-  const handleAddUser = async () => {
-    if (!newUser.username || !newUser.groupId) return;
-    await axios.post(`${API}/users`, {
-      username: newUser.username,
-      email: newUser.email || null, // ✅ email optional
-      passwordHash: "defaultpass",
-      groupId: Number(newUser.groupId),
-    });
-    await fetchUsers();
-    setNewUser({ username: "", email: "", groupId: "" });
-    setShowUserModal(false);
-  };
+// Add User Handler
+const handleAddUser = async () => {
+  setFormErrors({}); // reset errors
 
-  // Toggle privilege
-  const togglePrivilege = async (group, priv) => {
-    const hasPriv = group.privileges.includes(priv.privilege_name);
+  if (!newUser.username || !newUser.password || !newUser.groupId) {
+    setFormErrors({
+      username: !newUser.username ? "Username is required" : "",
+      password: !newUser.password ? "Password is required" : "",
+      groupId: !newUser.groupId ? "Please select a group" : "",
+    });
+    return;
+  }
+
+  try {
+    const payload = {
+      username: newUser.username.trim(),
+      email: newUser.email?.trim() || null,
+      password: newUser.password,
+      groupId: Number(newUser.groupId),
+    };
+
+    await axios.post(`${API}/users`, payload);
+    await fetchUsers();
+
+    setNewUser({ username: "", email: "", password: "", groupId: "" });
+    setShowUserModal(false);
+    setFormErrors({});
+  } catch (error) {
+    console.error("❌ addUser error:", error.response?.data || error.message);
+
+    // Friendly inline validation
+    if (error.response?.data?.error?.includes("already exists")) {
+      const field = error.response.data.error.includes("email")
+        ? "email"
+        : "username";
+      setFormErrors({
+        [field]: `${
+          field === "email" ? "Email" : "Username"
+        } already in use`,
+      });
+    } else {
+      setFormErrors({ general: "Failed to add user. Please try again." });
+    }
+  }
+};
+
+
+
+const togglePrivilege = async (group, priv) => {
+  const hasPriv = group.privileges.includes(priv.privilege_name);
+
+  try {
     if (hasPriv) {
       await axios.delete(`${API}/groups/${group.group_id}/privileges/${priv.privilege_id}`);
     } else {
       await axios.post(`${API}/groups/${group.group_id}/privileges/${priv.privilege_id}`);
     }
-    await fetchGroups();
-    setSelectedGroupForPrivileges(
-      (await axios.get(`${API}/groups`)).data.find((g) => g.group_id === group.group_id)
-    );
-  };
+
+    // ✅ Refresh groups once, not twice
+    const updatedGroups = (await axios.get(`${API}/groups`)).data;
+    setGroups(updatedGroups);
+
+    // ✅ Update the current modal group in sync
+    const updatedGroup = updatedGroups.find((g) => g.group_id === group.group_id);
+    setSelectedGroupForPrivileges(updatedGroup);
+  } catch (error) {
+    console.error("Error toggling privilege:", error);
+  }
+};
 
   const getAllPrivileges = (user) => {
     const group = groups.find((g) => g.group_name === user.group);
@@ -431,51 +475,127 @@ export default function Overview() {
         </div>
       )}
 
-      {showUserModal && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 w-96 relative">
-            <button
-              onClick={() => setShowUserModal(false)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-            >
-              <X size={20} />
-            </button>
-            <h3 className="text-xl font-bold mb-4">Create New User</h3>
-            <input
-              type="text"
-              placeholder="Username"
-              value={newUser.username}
-              onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 mb-4 focus:border-green-400 focus:ring-2 focus:ring-green-300"
-            />
-            <input
-              type="email"
-              placeholder="Email (optional)"
-              value={newUser.email}
-              onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 mb-4 focus:border-green-400 focus:ring-2 focus:ring-green-300"
-            />
-            <select
-              value={newUser.groupId}
-              onChange={(e) => setNewUser({ ...newUser, groupId: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 mb-4 focus:border-green-400 focus:ring-2 focus:ring-green-300"
-            >
-              <option value="">Select Group</option>
-              {groups.map((g) => (
-                <option key={g.group_id} value={g.group_id}>
-                  {g.group_name}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={handleAddUser}
-              className="w-full bg-gradient-to-r from-green-700 to-green-500 text-white px-4 py-2 rounded-xl shadow hover:scale-105 transition"
-            >
-              Save
-            </button>
-          </div>
+{showUserModal && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-50">
+    <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative animate-fade-in">
+      {/* Close button */}
+      <button
+        onClick={() => setShowUserModal(false)}
+        className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
+      >
+        <X size={22} />
+      </button>
+
+      {/* Header */}
+      <h3 className="text-2xl font-semibold text-gray-800 text-center mb-6">
+        Create New User
+      </h3>
+
+      {/* Form */}
+      <div className="space-y-5">
+        {/* Username */}
+        <div>
+          <label className="block text-gray-700 font-medium mb-1">Username *</label>
+          <input
+            type="text"
+            placeholder="Enter username"
+            value={newUser.username}
+            onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+            className={`w-full px-4 py-2 border rounded-lg text-gray-800 placeholder-gray-400 focus:ring-2 focus:outline-none transition-all duration-200 ${
+              formErrors.username
+                ? "border-red-500 focus:ring-red-300"
+                : "border-gray-300 focus:ring-green-300"
+            }`}
+          />
+          {formErrors.username && (
+            <p className="text-red-500 text-sm mt-1">{formErrors.username}</p>
+          )}
         </div>
-      )}
+
+        {/* Email */}
+        <div>
+          <label className="block text-gray-700 font-medium mb-1">Email *</label>
+          <input
+            type="email"
+            placeholder="Enter email address"
+            value={newUser.email}
+            onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+            className={`w-full px-4 py-2 border rounded-lg text-gray-800 placeholder-gray-400 focus:ring-2 focus:outline-none transition-all duration-200 ${
+              formErrors.email
+                ? "border-red-500 focus:ring-red-300"
+                : "border-gray-300 focus:ring-green-300"
+            }`}
+          />
+          {formErrors.email && (
+            <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>
+          )}
+        </div>
+
+        {/* Password */}
+        <div>
+          <label className="block text-gray-700 font-medium mb-1">Password *</label>
+          <input
+            type="password"
+            placeholder="Enter secure password"
+            value={newUser.password}
+            onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+            className={`w-full px-4 py-2 border rounded-lg text-gray-800 placeholder-gray-400 focus:ring-2 focus:outline-none transition-all duration-200 ${
+              formErrors.password
+                ? "border-red-500 focus:ring-red-300"
+                : "border-gray-300 focus:ring-green-300"
+            }`}
+          />
+          {formErrors.password && (
+            <p className="text-red-500 text-sm mt-1">{formErrors.password}</p>
+          )}
+        </div>
+
+        {/* Group */}
+        <div>
+          <label className="block text-gray-700 font-medium mb-1">Group *</label>
+          <select
+            value={newUser.groupId}
+            onChange={(e) => setNewUser({ ...newUser, groupId: e.target.value })}
+            className={`w-full px-4 py-2 border rounded-lg text-gray-800 focus:ring-2 focus:outline-none transition-all duration-200 ${
+              formErrors.groupId
+                ? "border-red-500 focus:ring-red-300"
+                : "border-gray-300 focus:ring-green-300"
+            }`}
+          >
+            <option value="">Select a group</option>
+            {groups.map((group) => (
+              <option key={group.group_id} value={group.group_id}>
+                {group.group_name}
+              </option>
+            ))}
+          </select>
+          {formErrors.groupId && (
+            <p className="text-red-500 text-sm mt-1">{formErrors.groupId}</p>
+          )}
+        </div>
+
+{/* Buttons */}
+<div className="flex justify-between items-center pt-4 gap-3">
+  <button
+    onClick={() => setShowUserModal(false)}
+    type="button"
+    className="flex-1 px-4 py-2 rounded-lg border-2 border-green-700 text-green-700 bg-transparent hover:bg-green-50 hover:scale-105 transition-all font-medium text-center"
+  >
+    Cancel
+  </button>
+  <button
+    onClick={handleAddUser}
+    className="flex-1 px-5 py-2 rounded-lg bg-gradient-to-r from-green-700 to-green-500 text-white font-medium shadow hover:scale-[1.02] hover:shadow-lg transition-all text-center"
+  >
+    Save User
+  </button>
+</div>
+
+      </div>
+    </div>
+  </div>
+)}
+
 
       {showEditUserModal && editUser && (
         <div className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50">
@@ -530,6 +650,68 @@ export default function Overview() {
           </div>
         </div>
       )}
+
+
+
+{showPrivilegeModal && selectedGroupForPrivileges && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-50">
+    <div className="bg-white rounded-2xl shadow-2xl p-10 w-full max-w-2xl relative animate-fade-in">
+      {/* Close button */}
+      <button
+        onClick={() => setShowPrivilegeModal(false)}
+        className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition"
+      >
+        <X size={24} />
+      </button>
+
+      {/* Header */}
+      <h3 className="text-3xl font-semibold text-gray-800 text-center mb-8">
+        Edit Privileges for{" "}
+        <span className="text-green-700">{selectedGroupForPrivileges.group_name}</span>
+      </h3>
+
+      {/* Privileges list */}
+      <div className="flex flex-col gap-4 max-h-96 overflow-y-auto pr-2">
+        {allPrivilegesList.map((priv) => {
+          const hasPrivilege = selectedGroupForPrivileges.privileges.includes(priv.privilege_name);
+          return (
+            <label
+              key={priv.privilege_id}
+              className={`flex items-center justify-between w-full px-5 py-4 border rounded-lg cursor-pointer transition ${
+                hasPrivilege ? "bg-green-50 border-green-300" : "border-gray-200 hover:bg-green-50"
+              }`}
+            >
+              <span className="text-gray-800 font-medium text-lg">{priv.privilege_name}</span>
+              <input
+                type="checkbox"
+                checked={hasPrivilege}
+                onChange={() => togglePrivilege(selectedGroupForPrivileges, priv)}
+                className="w-6 h-6 text-green-700 accent-green-700"
+              />
+            </label>
+          );
+        })}
+      </div>
+
+      {/* Buttons */}
+      <div className="mt-8 flex justify-end gap-4">
+        <button
+          onClick={() => setShowPrivilegeModal(false)}
+          className="flex-1 px-6 py-3 rounded-lg border-2 border-green-700 text-green-700 bg-transparent hover:bg-green-50 transition-all font-medium text-center text-lg"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => setShowPrivilegeModal(false)}
+          className="flex-1 px-6 py-3 rounded-lg bg-gradient-to-r from-green-700 to-green-500 text-white font-medium shadow hover:scale-[1.02] hover:shadow-lg transition-all text-center text-lg"
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
