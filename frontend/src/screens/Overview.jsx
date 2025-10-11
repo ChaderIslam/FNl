@@ -64,6 +64,8 @@ export default function Overview() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [formErrors, setFormErrors] = useState({});
+  const [newGroupDescription, setNewGroupDescription] = useState("");
+
 
 
   const allPrivilegesList = [
@@ -91,14 +93,27 @@ export default function Overview() {
     fetchUsers();
   }, []);
 
-  // Add group
-  const handleAddGroup = async () => {
-    if (!newGroup) return;
-    await axios.post(`${API}/groups`, { groupName: newGroup });
+const handleAddGroup = async () => {
+  if (!newGroup.trim()) {
+    setFormErrors({ groupName: "Group name is required" });
+    return;
+  }
+
+  try {
+    await axios.post(`${API}/groups`, {
+      groupName: newGroup.trim(),
+      description: newGroupDescription.trim() || "",
+    });
     await fetchGroups();
     setNewGroup("");
+    setNewGroupDescription(""); // reset description
     setShowGroupModal(false);
-  };
+    setFormErrors({});
+  } catch (error) {
+    console.error("❌ Add group error:", error.response?.data || error.message);
+    setFormErrors({ general: "Failed to add group. Please try again." });
+  }
+};
 
 // Add User Handler
 const handleAddUser = async () => {
@@ -200,73 +215,81 @@ const togglePrivilege = async (group, priv) => {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
 
-      {/* === GROUPS === */}
-      <div className="bg-white shadow-xl rounded-2xl p-6 mb-12">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold flex items-center gap-2">
-            <Shield className="text-green-600" /> Groups
-          </h2>
+  {/* === GROUPS === */}
+<div className="bg-white shadow-xl rounded-2xl p-6 mb-12">
+  <div className="flex justify-between items-center mb-6">
+    <h2 className="text-2xl font-semibold flex items-center gap-2">
+      <Shield className="text-green-600" /> Groups
+    </h2>
 
-          <div className="flex items-center gap-4">
-            <div className="relative w-full max-w-xs">
-              <input
-                type="text"
-                placeholder="Search groups..."
-                value={searchGroups}
-                onChange={(e) => setSearchGroups(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-2 pl-10 shadow-md focus:ring-2 focus:ring-green-300 focus:border-green-400"
-              />
-              <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-            </div>
+    <div className="flex items-center gap-4">
+      <div className="relative w-full max-w-xs">
+        <input
+          type="text"
+          placeholder="Search groups..."
+          value={searchGroups}
+          onChange={(e) => setSearchGroups(e.target.value)}
+          className="w-full border border-gray-200 rounded-xl px-4 py-2 pl-10 shadow-md focus:ring-2 focus:ring-green-300 focus:border-green-400"
+        />
+        <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+      </div>
+      <button
+        onClick={() => setShowGroupModal(true)}
+        className="bg-gradient-to-r from-green-700 to-green-500 text-white px-4 py-2 rounded-xl shadow hover:scale-105 transition flex items-center gap-1"
+      >
+        <Plus size={16} /> Add
+      </button>
+    </div>
+  </div>
+
+  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {filteredGroups.length > 0 ? (
+      filteredGroups.map((group) => (
+        <div
+          key={group.group_id}
+          className="rounded-2xl border border-gray-200 shadow-md p-5 hover:shadow-lg transition bg-gray-50"
+        >
+          <h3 className="text-xl font-semibold text-gray-800 mb-1">{group.group_name}</h3>
+
+<p className="text-gray-800 mb-3">
+  {group.description || "No description"}
+</p>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            {group.privileges.length > 0 ? (
+              group.privileges.map((p, idx) => (
+                <span
+                  key={idx}
+                  className="bg-green-100 text-green-700 px-3 py-1 text-sm rounded-full"
+                  title={p} // tooltip for long privileges
+                >
+                  {p}
+                </span>
+              ))
+            ) : (
+              <span className="text-gray-400 italic">No privileges yet</span>
+            )}
+          </div>
+
+          <div className="flex justify-end">
             <button
-              onClick={() => setShowGroupModal(true)}
-              className="bg-gradient-to-r from-green-700 to-green-500 text-white px-4 py-2 rounded-xl shadow hover:scale-105 transition flex items-center gap-1"
+              onClick={() => {
+                setSelectedGroupForPrivileges(group);
+                setShowPrivilegeModal(true);
+              }}
+              className="bg-gradient-to-r from-green-600 to-green-500 text-white px-3 py-1 rounded-lg text-sm shadow hover:from-green-700 hover:to-green-600 transition"
             >
-              <Plus size={16} /> Add
+              Edit Privileges
             </button>
           </div>
         </div>
+      ))
+    ) : (
+      <p className="text-gray-500 italic">No groups found</p>
+    )}
+  </div>
+</div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredGroups.length > 0 ? (
-            filteredGroups.map((group) => (
-              <div
-                key={group.group_id}
-                className="rounded-2xl border border-gray-200 shadow-md p-5 hover:shadow-lg transition bg-gray-50"
-              >
-                <h3 className="text-xl font-semibold text-gray-800 mb-3">{group.group_name}</h3>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {group.privileges.length > 0 ? (
-                    group.privileges.map((p, idx) => (
-                      <span
-                        key={idx}
-                        className="bg-green-100 text-green-700 px-3 py-1 text-sm rounded-full"
-                      >
-                        {p}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-gray-400 italic">No privileges yet</span>
-                  )}
-                </div>
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => {
-                      setSelectedGroupForPrivileges(group);
-                      setShowPrivilegeModal(true);
-                    }}
-                    className="bg-gradient-to-r from-green-600 to-green-500 text-white px-3 py-1 rounded-lg text-sm shadow hover:from-green-700 hover:to-green-600 transition"
-                  >
-                    Edit Privileges
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-gray-500 italic">No groups found</p>
-          )}
-        </div>
-      </div>
 
       {/* === USERS === */}
       <div className="bg-white shadow-xl rounded-2xl p-6">
@@ -465,6 +488,14 @@ const togglePrivilege = async (group, priv) => {
               onChange={(e) => setNewGroup(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 mb-4 focus:border-green-400 focus:ring-2 focus:ring-green-300"
             />
+            <input
+  type="text"
+  placeholder="Group Description (optional)"
+  value={newGroupDescription}
+  onChange={(e) => setNewGroupDescription(e.target.value)}
+  className="w-full border border-gray-200 rounded-lg px-3 py-2 mb-4 focus:border-green-400 focus:ring-2 focus:ring-green-300"
+/>
+
             <button
               onClick={handleAddGroup}
               className="w-full bg-gradient-to-r from-green-700 to-green-500 text-white px-4 py-2 rounded-xl shadow hover:scale-105 transition"

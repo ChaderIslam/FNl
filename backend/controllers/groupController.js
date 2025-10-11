@@ -1,10 +1,12 @@
 import pool from "../db/db.js";
 
+// ==============================
 // GET all groups with privileges
+// ==============================
 export async function getGroups(req, res) {
   try {
     const result = await pool.query(`
-      SELECT g.group_id, g.group_name,
+      SELECT g.group_id, g.group_name, g.description,
              ARRAY_REMOVE(ARRAY_AGG(DISTINCT p.privilege_name), NULL) AS privileges
       FROM groups g
       LEFT JOIN group_privileges gp ON g.group_id = gp.group_id
@@ -18,7 +20,9 @@ export async function getGroups(req, res) {
   }
 }
 
+// ==============================
 // POST add new group
+// ==============================
 export async function addGroup(req, res) {
   const { groupName, description } = req.body;
   try {
@@ -33,7 +37,9 @@ export async function addGroup(req, res) {
   }
 }
 
+// ==============================
 // DELETE a group
+// ==============================
 export async function deleteGroup(req, res) {
   const { id } = req.params;
   try {
@@ -44,7 +50,9 @@ export async function deleteGroup(req, res) {
   }
 }
 
+// ==============================
 // POST assign privilege to group
+// ==============================
 export async function assignPrivilegeToGroup(req, res) {
   const { id, privilegeId } = req.params;
   try {
@@ -59,7 +67,9 @@ export async function assignPrivilegeToGroup(req, res) {
   }
 }
 
+// ==============================
 // DELETE remove privilege from group
+// ==============================
 export async function removePrivilegeFromGroup(req, res) {
   const { id, privilegeId } = req.params;
   try {
