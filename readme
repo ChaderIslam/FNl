@@ -1,3 +1,201 @@
+📘 API Documentation
+
+Base URL:
+http://localhost:5000/api
+
+All endpoints return JSON responses.
+Use Content-Type: application/json when sending data.
+
+👤 1. Citizens API
+Table: citizens
+Column	Type	Description
+id	SERIAL	Primary key
+nin	VARCHAR(20)	National ID Number
+last_name_ar	VARCHAR(100)	Last name (Arabic)
+first_name_ar	VARCHAR(100)	First name (Arabic)
+last_name_lat	VARCHAR(100)	Last name (Latin)
+first_name_lat	VARCHAR(100)	First name (Latin)
+wilaya	VARCHAR(100)	Wilaya name
+municipality	VARCHAR(100)	Municipality name
+created_at	TIMESTAMP	Auto timestamp
+🟢 GET /api/citizens
+
+Description: Fetch all citizens
+Response Example:
+
+[
+  {
+    "id": 1,
+    "nin": "1234567890",
+    "last_name_ar": "بن عمر",
+    "first_name_ar": "سارة",
+    "last_name_lat": "Benomar",
+    "first_name_lat": "Sara",
+    "wilaya": "Guelma",
+    "municipality": "Oued Zenati",
+    "created_at": "2025-10-19T13:24:07.472Z"
+  }
+]
+
+🟢 GET /api/citizens/:id
+
+Description: Fetch one citizen by ID
+Example: /api/citizens/1
+
+🟡 POST /api/citizens
+
+Description: Create new citizen
+Request Example:
+
+{
+  "nin": "1234567890",
+  "lastname_ar": "بن عمر",
+  "firstname_ar": "سارة",
+  "lastname_lat": "Benomar",
+  "firstname_lat": "Sara",
+  "wilaya": "Guelma",
+  "municipality": "Oued Zenati"
+}
+
+🔵 PUT /api/citizens/:id
+
+Description: Update existing citizen
+Request Example:
+
+{
+  "nin": "1234567890",
+  "lastname_ar": "بن عمر",
+  "firstname_ar": "سارة",
+  "lastname_lat": "Benomar",
+  "firstname_lat": "Sara",
+  "wilaya": "Guelma",
+  "municipality": "Oued Zenati"
+}
+
+🔴 DELETE /api/citizens/:id
+
+Description: Delete a citizen by ID
+
+📋 2. Control Lists API
+Table: control_lists
+Column	Type	Description
+control_list_id	SERIAL	Primary key
+name	VARCHAR(100)	Control list name
+description	TEXT	Description
+created_by	INT	FK → users(user_id)
+created_at	TIMESTAMP	Auto timestamp
+🟢 GET /api/control-lists
+
+Description: Get all control lists
+Response Example:
+
+[
+  {
+    "control_list_id": 1,
+    "name": "Vehicle Safety Check",
+    "description": "List for checking vehicles' safety and documents",
+    "created_by": 1,
+    "created_at": "2025-10-19T14:00:00.000Z"
+  }
+]
+
+🟢 GET /api/control-lists/:id
+
+Description: Get one control list by ID
+
+🟡 POST /api/control-lists
+
+Description: Create a control list
+Request Example:
+
+{
+  "name": "Vehicle Inspection",
+  "description": "Checklist for road safety",
+  "created_by": 1
+}
+
+🔵 PUT /api/control-lists/:id
+
+Description: Update control list
+Request Example:
+
+{
+  "name": "Updated Vehicle Inspection",
+  "description": "Updated checklist with new safety rules"
+}
+
+🔴 DELETE /api/control-lists/:id
+
+Description: Delete control list
+
+🚓 3. Controls API
+
+Represents each inspection or control operation, linking a citizen to a control list.
+
+Table: controls
+Column	Type	Description
+control_id	SERIAL	Primary key
+citizen_id	INT	FK → citizens(id)
+control_list_id	INT	FK → control_lists(control_list_id)
+controlled_by	INT	FK → users(user_id)
+notes	TEXT	Optional
+created_at	TIMESTAMP	Auto timestamp
+🟢 GET /api/controls
+
+Description: Fetch all control records
+Response Example:
+
+[
+  {
+    "control_id": 1,
+    "citizen_id": 22,
+    "control_list_id": 3,
+    "controlled_by": 5,
+    "notes": "Citizen vehicle documents verified",
+    "created_at": "2025-10-19T14:15:00.000Z"
+  }
+]
+
+🟢 GET /api/controls/:id
+
+Description: Fetch control by ID
+
+🟡 POST /api/controls
+
+Description: Create new control
+Request Example:
+
+{
+  "citizen_id": 22,
+  "control_list_id": 3,
+  "controlled_by": 5,
+  "notes": "Vehicle passed inspection"
+}
+
+🔵 PUT /api/controls/:id
+
+Description: Update control record
+Request Example:
+
+{
+  "notes": "Documents updated and verified"
+}
+
+🔴 DELETE /api/controls/:id
+
+Description: Delete control record
+
+⚠️ Response Status Codes
+Code	Meaning
+200	OK
+201	Created
+400	Bad Request
+404	Not Found
+500	Internal Server Error
+
+
+
+
 add user api
 
 Method: POST

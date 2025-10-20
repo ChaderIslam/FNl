@@ -202,3 +202,77 @@ SELECT g.group_id, p.privilege_id
 FROM groups g, privileges p
 ON CONFLICT DO NOTHING;
 
+
+
+-- ===============================================================
+-- 4. Citizens, Controls & Control Lists
+-- ===============================================================
+CREATE TABLE IF NOT EXISTS citizens (
+    citizen_id SERIAL PRIMARY KEY,
+    nin VARCHAR(20) UNIQUE NOT NULL,
+    last_name_ar VARCHAR(100) NOT NULL,
+    first_name_ar VARCHAR(100) NOT NULL,
+    last_name_lat VARCHAR(100),
+    first_name_lat VARCHAR(100),
+    wilaya VARCHAR(100) NOT NULL,
+    municipality VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS control_lists (
+    control_list_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_by INT REFERENCES users(user_id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS controls (
+    control_id SERIAL PRIMARY KEY,
+    control_list_id INT REFERENCES control_lists(control_list_id) ON DELETE CASCADE,
+    citizen_id INT REFERENCES citizens(citizen_id) ON DELETE CASCADE,
+    type VARCHAR(50),
+    status VARCHAR(20) DEFAULT 'pending',
+    progress INT DEFAULT 0,
+    result VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+
+-- Citizens
+INSERT INTO citizens (nin, last_name_ar, first_name_ar, last_name_lat, first_name_lat, wilaya, municipality)
+VALUES
+('100000001','بن عيسى','محمد','Ben Aissa','Mohamed','Guelma','Oued Zenati'),
+('100000002','بن عبد الله','أحمد','Ben Abdallah','Ahmed','Algiers','Bab Ezzouar'),
+('100000003','بن سعيد','علي','Ben Said','Ali','Oran','El Bahia'),
+('100000004','بن عمر','خالد','Ben Omar','Khaled','Constantine','El Khroub'),
+('100000005','بن حمد','يوسف','Ben Hamd','Youssef','Blida','Bouinan'),
+('100000006','بن محمود','سعيد','Ben Mahmoud','Said','Setif','El Eulma'),
+('100000007','بن مصطفى','رائد','Ben Mostafa','Raed','Annaba','Berrahal'),
+('100000008','بن رشيد','سامي','Ben Rached','Sami','Tizi Ouzou','Azazga'),
+('100000009','بن عبد القادر','فراس','Ben Abdelkader','Firas','Tipaza','Cherchell'),
+('100000010','بن زهير','طارق','Ben Zohir','Tarek','Bejaia','Akbou'),
+('100000011','بن فاضل','رامي','Ben Fadel','Rami','Skikda','El Hadaik'),
+('100000012','بن يعقوب','فؤاد','Ben Yacoub','Fouad','Chlef','Oued Fodda'),
+('100000013','بن بشير','إياد','Ben Bachir','Iyad','Sidi Bel Abbes','Merine'),
+('100000014','بن حكيم','سليم','Ben Hakim','Salim','Relizane','Oued Rhiou'),
+('100000015','بن سليم','مازن','Ben Slim','Mazen','Laghouat','Ksar El Hirane'),
+('100000016','بن ياسين','نبيل','Ben Yacine','Nabil','Medea','Ain Defla'),
+('100000017','بن جابر','رامز','Ben Jaber','Ramez','Tlemcen','Maghnia'),
+('100000018','بن فريد','أنس','Ben Farid','Anes','Mostaganem','Sidi Lakhdar'),
+('100000019','بن طارق','كريم','Ben Tarek','Karim','Mascara','Ghriss'),
+('100000020','بن عابد','حاتم','Ben Abed','Hatem','Tiaret','Mecheria')
+ON CONFLICT DO NOTHING;
+
+-- Control List
+INSERT INTO control_lists (name, description, created_by)
+VALUES ('October Control Batch', 'Monthly citizen control batch for October', 1)
+ON CONFLICT DO NOTHING;
+
+-- Controls
+INSERT INTO controls (control_list_id, citizen_id, type)
+SELECT 1, citizen_id, CASE WHEN citizen_id % 2 = 0 THEN 'Advanced' ELSE 'Basic' END
+FROM citizens
+ON CONFLICT DO NOTHING;
+
